@@ -1,3 +1,16 @@
+// MD5Util实现特点：
+
+// 1. 完整的 RFC1321 标准实现
+// 2. 特别优化中文支持​​（通过UTF-8编码）
+// 3. 热更新支持（游戏开发友好）
+// 4. 提供HMAC - MD5增强安全性
+
+// 改进建议：
+
+// 1. 添加 ​​加盐提示​​ 在注释中
+// 2. 增加 ​​迭代参数​​ 增强安全性
+// 3. 补充 ​​异步计算​​ 接口（大文件场景）
+
 import { bindHotUpdateClass } from "../tool/base/HotUpdate";
 /*
  * A JavaScript implementation of the RSA Data Security, Inc. MD5 Message
@@ -5,7 +18,7 @@ import { bindHotUpdateClass } from "../tool/base/HotUpdate";
  * Version 2.1 Copyright (C) Paul Johnston 1999 - 2002.
  * Other contributors: Greg Holt, Andrew Kepert, Ydnar, Lostinet
  * Distributed under the BSD License
- * See http://pajhome.org.uk/crypt/md5 for more info.
+ * See http://pajhome.org.uk/crypt/md5 for more info.）
  */
 @bindHotUpdateClass("_MD5Util")
 export class _MD5Util {
@@ -13,17 +26,17 @@ export class _MD5Util {
     * Configurable variables. You may need to tweak these to be compatible with
     * the server-side, but the defaults work in most cases.
     */
-    hexcase = 0;  /* hex output format. 0 - lowercase; 1 - uppercase        */
-    b64pad = ""; /* base-64 pad character. "=" for strict RFC compliance   */
-    chrsz = 8;  /* bits per input character. 8 - ASCII; 16 - Unicode      */
+    hexcase = 0;  /* hex output format. 0 - lowercase; 1 - uppercase  十六进制输出大小写 (0:小写, 1:大写)    */
+    b64pad = ""; /* base-64 pad character. "=" for strict RFC compliance  Base64填充字符  */
+    chrsz = 8;  /* bits per input character. 8 - ASCII; 16 - Unicode   字符编码位数 (8:ASCII, 16:Unicode)   */
 
     /*
     * These are the functions you'll usually want to call
     * They take string arguments and return either hex or base-64 encoded strings
     */
-    hex_md5(s) { return this.binl2hex(this.core_md5(this.str2binl(s), s.length * this.chrsz)); }
-    b64_md5(s) { return this.binl2b64(this.core_md5(this.str2binl(s), s.length * this.chrsz)); }
-    str_md5(s) { return this.binl2str(this.core_md5(this.str2binl(s), s.length * this.chrsz)); }
+    hex_md5(s) { return this.binl2hex(this.core_md5(this.str2binl(s), s.length * this.chrsz)); }  // 返回16进制MD5
+    b64_md5(s) { return this.binl2b64(this.core_md5(this.str2binl(s), s.length * this.chrsz)); }  // 返回Base64 MD5
+    str_md5(s) { return this.binl2str(this.core_md5(this.str2binl(s), s.length * this.chrsz)); }  // 返回原始二进制
     hex_hmac_md5(key, data) { return this.binl2hex(this.core_hmac_md5(key, data)); }
     b64_hmac_md5(key, data) { return this.binl2b64(this.core_hmac_md5(key, data)); }
     str_hmac_md5(key, data) { return this.binl2str(this.core_hmac_md5(key, data)); }
@@ -40,20 +53,24 @@ export class _MD5Util {
     */
     core_md5(x, len) {
         /* append padding */
+        // 1. 数据填充 (RFC1321标准)
         x[len >> 5] |= 0x80 << ((len) % 32);
         x[(((len + 64) >>> 9) << 4) + 14] = len;
 
+        // 2. 初始化状态寄存器 (A/B/C/D)
         var a = 1732584193;
         var b = -271733879;
         var c = -1732584194;
         var d = 271733878;
-
+        
+         // 3. 四轮主循环 (每轮16次操作)
         for (var i = 0; i < x.length; i += 16) {
             var olda = a;
             var oldb = b;
             var oldc = c;
             var oldd = d;
-
+            
+            // FF/GG/HH/II 轮函数操作
             a = this.md5_ff(a, b, c, d, x[i + 0], 7, -680876936);
             d = this.md5_ff(d, a, b, c, x[i + 1], 12, -389564586);
             c = this.md5_ff(c, d, a, b, x[i + 2], 17, 606105819);
@@ -122,6 +139,7 @@ export class _MD5Util {
             c = this.md5_ii(c, d, a, b, x[i + 2], 15, 718787259);
             b = this.md5_ii(b, c, d, a, x[i + 9], 21, -343485551);
 
+            // 使用安全加法(safe_add)和循环左移(bit_rol)
             a = this.safe_add(a, olda);
             b = this.safe_add(b, oldb);
             c = this.safe_add(c, oldc);
@@ -154,15 +172,18 @@ export class _MD5Util {
     * Calculate the HMAC-MD5, of a key and some data
     */
     core_hmac_md5(key, data) {
+        // 1. 密钥处理（过长时哈希）
         var bkey = this.str2binl(key);
         if (bkey.length > 16) bkey = this.core_md5(bkey, key.length * this.chrsz);
 
+        // 2. 生成ipad/opad
         var ipad = Array(16), opad = Array(16);
         for (var i = 0; i < 16; i++) {
             ipad[i] = bkey[i] ^ 0x36363636;
             opad[i] = bkey[i] ^ 0x5C5C5C5C;
         }
-
+        
+        // 3. 双重哈希计算
         var hash = this.core_md5(ipad.concat(this.str2binl(data)), 512 + data.length * this.chrsz);
         return this.core_md5(opad.concat(hash), 512 + 128);
     }
@@ -170,6 +191,7 @@ export class _MD5Util {
     /*
     * Add integers, wrapping at 2^32. This uses 16-bit operations internally
     * to work around bugs in some JS interpreters.
+    * 32位安全加法（处理JS整数溢出）
     */
     safe_add(x, y) {
         var lsw = (x & 0xFFFF) + (y & 0xFFFF);
@@ -179,6 +201,7 @@ export class _MD5Util {
 
     /*
     * Bitwise rotate a 32-bit number to the left.
+    * 循环左移位
     */
     bit_rol(num, cnt) {
         return (num << cnt) | (num >>> (32 - cnt));
@@ -187,6 +210,7 @@ export class _MD5Util {
     /*
     * Convert a string to an array of little-endian words
     * If this.chrsz is ASCII, characters >255 have their hi-byte silently ignored.
+    * 字符串 ⇨ 32位数组 (小端序)
     */
     str2binl(str) {
         var bin = Array();
@@ -198,6 +222,7 @@ export class _MD5Util {
 
     /*
     * Convert an array of little-endian words to a string
+    * 32位数组 ⇨ 字符串 (反向操作)
     */
     binl2str(bin) {
         var str = "";
@@ -238,6 +263,9 @@ export class _MD5Util {
         return str;
     }
 
+    /*
+    *  UTF-8编码/解码 (针对中文)
+    */
     utf8_encode(input: string): string {
         input = input.replace(/\r\n/g, "\n");
         let utftext = "";
