@@ -1,2 +1,10 @@
 # game-simple-code
-一些通用的代码片段
+
+收集的一些通用代码片段
+
+## Ts/Js
+
+- md5Utils
+- esc
+- stringUtils
+- dictionary
